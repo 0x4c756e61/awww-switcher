@@ -1,25 +1,17 @@
-import React, { useEffect, useState } from "react";
-import {
-  ActionPanel,
-  Action,
-  Grid,
-  showToast,
-  Toast,
-  Icon,
-  getPreferenceValues,
-} from "@vicinae/api";
+import { useEffect, useState } from "react";
+import { ActionPanel, Action, Grid, showToast, Toast, Icon, getPreferenceValues } from "@vicinae/api";
 import { getImagesFromPath, Image } from "./utils/image";
-import { Monitor, getMonitors } from "./utils/monitor";
-import { omniCommand } from "./utils/hyprland";
+import { WindowManagement as wm } from "@vicinae/api";
+import { omniCommand } from "./utils/awww";
 
 export default function DisplayGrid() {
-  const [monitors, setMonitors] = useState<Monitor[]>([]);
+  const [monitors, setMonitors] = useState<wm.Screen[]>([]);
+  const [isWMSupported, setIsWMSupported] = useState<boolean>(true);
   const path: string = getPreferenceValues().wallpaperPath;
-  const swwwTransition: string = getPreferenceValues().transitionType || "fade";
-  const swwwSteps: number =
-    parseInt(getPreferenceValues().transitionSteps) || 90;
-  const swwwDuration: number =
-    parseInt(getPreferenceValues().transitionDuration) || 3;
+  const awwwTransition: string = getPreferenceValues().transitionType || "fade";
+  const awwwFPS: number = getPreferenceValues().transitionFPS || 60;
+  const awwwSteps: number = parseInt(getPreferenceValues().transitionSteps) || 90;
+  const awwwDuration: number = parseInt(getPreferenceValues().transitionDuration) || 3;
   const colorGen: string = getPreferenceValues().colorGenTool || "none";
   const gridRows = parseInt(getPreferenceValues().gridRows) || 4;
   type Preferences = {
@@ -38,7 +30,15 @@ export default function DisplayGrid() {
   const monitorNames = monitors.map((m) => m.name);
 
   useEffect(() => {
-    getMonitors().then(setMonitors);
+    wm.getScreens().then(setMonitors, (err) => {
+      setIsWMSupported(false);
+
+      showToast({
+        title: "Could not get monitors, monitor specific features will be disabled",
+        message: err,
+        style: Toast.Style.Failure,
+      });
+    });
     getImagesFromPath(path)
       .then((ws) => {
         setIsLoading(false);
@@ -61,22 +61,14 @@ export default function DisplayGrid() {
       fit={Grid.Fit.Fill}
       isLoading={false}
     >
-      <Grid.Section
-        title={
-          isLoading
-            ? `Loading images in '${path}'...`
-            : `Showing images from '${path}'`
-        }
-      >
+      <Grid.Section title={isLoading ? `Loading images in '${path}'...` : `Showing images from '${path}'`}>
         {isLoading
           ? Array.from({ length: gridRows * 3 }).map((_, i) => (
               <Grid.Item
                 key={i}
                 content={{ source: "loading.gif" }}
                 title="Loading..."
-                subtitle={
-                  preferences.showImageDetails ? `480x270 • 79.5 KB` : undefined
-                }
+                subtitle={preferences.showImageDetails ? `480x270 • 79.5 KB` : undefined}
               />
             ))
           : wallpapers.map((w) => (
@@ -86,10 +78,7 @@ export default function DisplayGrid() {
                 title={w.name}
                 {...(preferences.showImageDetails && {
                   subtitle: `${w.width}x${w.height} • ${w.size.toFixed(2)} MB`,
-                  accessories: [
-                    { text: `${w.width}x${w.height}` },
-                    { text: `${w.size.toFixed(2)} MB` },
-                  ],
+                  accessories: [{ text: `${w.width}x${w.height}` }, { text: `${w.size.toFixed(2)} MB` }],
                 })}
                 actions={
                   <ActionPanel>
@@ -101,60 +90,66 @@ export default function DisplayGrid() {
                           omniCommand(
                             w.fullpath,
                             "ALL",
-                            swwwTransition,
-                            swwwSteps,
-                            swwwDuration,
+                            awwwTransition,
+                            awwwSteps,
+                            awwwDuration,
                             preferences.toggleVicinaeSetting,
                             colorGen,
+                            awwwFPS,
                             postProduction,
                           );
                         }}
                       />
                     </ActionPanel.Section>
 
-                    <ActionPanel.Section title="Split on Monitors">
-                      {monitorNames.includes(leftMonitorName) &&
-                        monitorNames.includes(rightMonitorName) && (
-                          <Action
-                            title={`Split wallpaper ${leftMonitorName} | ${rightMonitorName}`}
-                            icon={Icon.ArrowsExpand}
-                            onAction={() => {
-                              omniCommand(
-                                w.fullpath,
-                                `${leftMonitorName}|${rightMonitorName}`,
-                                swwwTransition,
-                                swwwSteps,
-                                swwwDuration,
-                                preferences.toggleVicinaeSetting,
-                                colorGen,
-                                postProduction,
-                              );
-                            }}
-                          />
-                        )}
-                    </ActionPanel.Section>
+                    {isWMSupported && (
+                      <>
+                        <ActionPanel.Section title="Split on Monitors">
+                          {monitorNames.includes(leftMonitorName) && monitorNames.includes(rightMonitorName) && (
+                            <Action
+                              title={`Split wallpaper ${leftMonitorName} | ${rightMonitorName}`}
+                              icon={Icon.ArrowsExpand}
+                              onAction={() => {
+                                omniCommand(
+                                  w.fullpath,
+                                  `${leftMonitorName}|${rightMonitorName}`,
+                                  awwwTransition,
+                                  awwwSteps,
+                                  awwwDuration,
+                                  preferences.toggleVicinaeSetting,
+                                  colorGen,
+                                  awwwFPS,
+                                  postProduction,
+                                );
+                              }}
+                            />
+                          )}
+                        </ActionPanel.Section>
 
-                    <ActionPanel.Section title="Set on Specific Monitor">
-                      {monitors.map((monitor) => (
-                        <Action
-                          key={monitor.id}
-                          title={`Set on ${monitor.name}`}
-                          icon={Icon.Monitor}
-                          onAction={() => {
-                            omniCommand(
-                              w.fullpath,
-                              monitor.name,
-                              swwwTransition,
-                              swwwSteps,
-                              swwwDuration,
-                              preferences.toggleVicinaeSetting,
-                              colorGen,
-                              postProduction,
-                            );
-                          }}
-                        />
-                      ))}
-                    </ActionPanel.Section>
+                        <ActionPanel.Section title="Set on Specific Monitor">
+                          {monitors.map((monitor) => (
+                            <Action
+                              key={monitor.model}
+                              title={`Set on ${monitor.name}`}
+                              icon={Icon.Monitor}
+                              onAction={() => {
+                                omniCommand(
+                                  w.fullpath,
+                                  monitor.name,
+                                  awwwTransition,
+                                  awwwSteps,
+                                  awwwDuration,
+                                  preferences.toggleVicinaeSetting,
+                                  colorGen,
+                                  awwwFPS,
+                                  postProduction,
+                                );
+                              }}
+                            />
+                          ))}
+                        </ActionPanel.Section>
+                      </>
+                    )}
                   </ActionPanel>
                 }
               />

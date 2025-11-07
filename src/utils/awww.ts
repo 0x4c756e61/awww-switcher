@@ -11,40 +11,23 @@ export async function omniCommand(
   duration: number,
   apptoggle: boolean,
   colorApp: string,
+  fps: number,
   postProduction: string,
 ) {
   let success: boolean;
 
   if (monitor === "ALL") {
-    success = await setWallpaper(path, transition, steps, duration);
+    success = await setWallpaper(path, transition, steps, duration, fps);
   } else if (monitor.includes("|")) {
     const splitImages = await runConvertSplit(path);
     const monitors = monitor.split("|");
 
-    const ok1 = await setWallpaperOnMonitor(
-      splitImages[0],
-      monitors[0],
-      transition,
-      steps,
-      duration,
-    );
-    const ok2 = await setWallpaperOnMonitor(
-      splitImages[1],
-      monitors[1],
-      transition,
-      steps,
-      duration,
-    );
+    const ok1 = await setWallpaperOnMonitor(splitImages[0], monitors[0], transition, steps, duration, fps);
+    const ok2 = await setWallpaperOnMonitor(splitImages[1], monitors[1], transition, steps, duration, fps);
 
     success = ok1 && ok2;
   } else {
-    success = await setWallpaperOnMonitor(
-      path,
-      monitor,
-      transition,
-      steps,
-      duration,
-    );
+    success = await setWallpaperOnMonitor(path, monitor, transition, steps, duration, fps);
   }
 
   if (success) {
@@ -84,9 +67,8 @@ export async function omniCommand(
   } else {
     showToast({
       style: Toast.Style.Failure,
-      title: "ERROR: Check swww-daemon status",
-      message:
-        "Make sure swww is installed and its daemon is running (swww-daemon).",
+      title: "ERROR: Check awww-daemon status",
+      message: "Make sure awww is installed and its daemon is running (awww-daemon).",
     });
   }
 }
@@ -96,13 +78,14 @@ export const setWallpaper = async (
   transition: string,
   steps: number,
   seconds: number,
+  fps: number,
 ): Promise<boolean> => {
   try {
-    execSync("swww query", { stdio: "pipe" });
+    execSync("awww query", { stdio: "pipe" });
 
     return await new Promise<boolean>((resolve) => {
       exec(
-        `swww img ${path} -t ${transition} --transition-step ${steps} --transition-duration ${seconds}`,
+        `awww img "${path}" -t ${transition} --transition-step ${steps} --transition-fps ${fps} --transition-duration ${seconds}`,
         (error) => {
           if (error) {
             resolve(false);
@@ -123,13 +106,12 @@ export const setWallpaperOnMonitor = async (
   transition: string,
   steps: number,
   seconds: number,
+  fps: number,
 ): Promise<boolean> => {
   try {
-    execSync("swww query", { stdio: "pipe" });
-
     return await new Promise<boolean>((resolve) => {
       exec(
-        `swww img ${path} --outputs "${monitorName}" -t ${transition} --transition-step ${steps} --transition-duration ${seconds}`,
+        `awww img "${path} --outputs "${monitorName}" -t ${transition} --transition-step ${steps} --transition-fps ${fps} --transition-duration ${seconds}`,
         (error) => {
           if (error) {
             resolve(false);
